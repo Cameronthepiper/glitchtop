@@ -35,13 +35,16 @@ HEADER = [
 
 # ---------------- UTILS ---------------- #
 
+
 def format_time(seconds):
     m, s = divmod(int(seconds), 60)
     h, m = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 def get_uptime():
     return format_time(time.time() - psutil.boot_time())
+
 
 def get_system_status(cpu, mem):
     if cpu >= 80 or mem >= 85:
@@ -52,6 +55,7 @@ def get_system_status(cpu, mem):
         return "MONITORING"
     else:
         return "NOMINAL"
+
 
 def glitch_line(text, color, stdscr, row, x=4,
                 min_chars=MIN_GLITCH_CHARS, max_chars=MAX_GLITCH_CHARS,
@@ -68,6 +72,7 @@ def glitch_line(text, color, stdscr, row, x=4,
         time.sleep(frame_delay)
 
 # ---------------- MAIN DRAW LOOP ---------------- #
+
 
 def draw(stdscr):
     curses.curs_set(0)
@@ -97,10 +102,12 @@ def draw(stdscr):
 
     # ----- LIVE DEVICE ID -----
     live_feed_row = status_row - 1
+
     def generate_device_id():
-        return f"{random.randint(10000,99999)}-{random.randint(10000,99999)}-{random.randint(100000000000,999999999999)}"
+        return f"{random.randint(10000, 99999)}-{random.randint(10000, 99999)}-{random.randint(100000000000, 999999999999)}"
     live_feed = generate_device_id()
-    stdscr.addstr(live_feed_row, 4, f"DEVICE ID: {live_feed}", curses.color_pair(6))
+    stdscr.addstr(live_feed_row, 4,
+                  f"DEVICE ID: {live_feed}", curses.color_pair(6))
 
     # ----- LOGS BUFFER -----
     log_lines = []
@@ -122,7 +129,8 @@ def draw(stdscr):
 
         # ----- UPDATE LIVE DEVICE ID -----
         live_feed = generate_device_id()
-        stdscr.addstr(live_feed_row, 4, f"HANDSHAKE ID: {live_feed}", curses.color_pair(6))
+        stdscr.addstr(live_feed_row, 4,
+                      f"HANDSHAKE ID: {live_feed}", curses.color_pair(6))
 
         # ----- STATUS LINE -----
         status_text_val = get_system_status(cpu, mem)
@@ -164,7 +172,7 @@ def draw(stdscr):
 
         # ----- PROCESS LIST -----
         processes = []
-        for p in psutil.process_iter(['pid','name','username','cpu_percent','memory_percent','cpu_times']):
+        for p in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent', 'cpu_times']):
             try:
                 cpu_time = p.info['cpu_times']
                 total_time = cpu_time.user + cpu_time.system
@@ -182,11 +190,14 @@ def draw(stdscr):
         proc_start = base_row + len(system_lines) + 1
 
         # Table header
-        stdscr.addstr(proc_start-1, 4, " PID   USER     CPU%   MEM%    TIME     COMMAND", curses.color_pair(8)|curses.A_BOLD)
+        stdscr.addstr(proc_start-1, 4, " PID   USER     CPU%   MEM%    TIME     COMMAND",
+                      curses.color_pair(8) | curses.A_BOLD)
 
         for i, p in enumerate(processes[:TOP_N_PROCS]):
-            cpu_color = curses.color_pair(5)|curses.A_BOLD if p['cpu']>50 else curses.color_pair(6) if p['cpu']>20 else curses.color_pair(4)
-            mem_color = curses.color_pair(5)|curses.A_BOLD if p['mem']>50 else curses.color_pair(7) if p['mem']>20 else curses.color_pair(4)
+            cpu_color = curses.color_pair(5) | curses.A_BOLD if p['cpu'] > 50 else curses.color_pair(
+                6) if p['cpu'] > 20 else curses.color_pair(4)
+            mem_color = curses.color_pair(5) | curses.A_BOLD if p['mem'] > 50 else curses.color_pair(
+                7) if p['mem'] > 20 else curses.color_pair(4)
             line_parts = [
                 (f"{p['pid']:5d} ", curses.color_pair(8)),
                 (f"{p['user']:<8} ", curses.color_pair(8)),
@@ -195,10 +206,18 @@ def draw(stdscr):
                 (f"{p['time']:>9} ", curses.color_pair(8)),
                 (f"{p['name']:<20}", curses.color_pair(8))
             ]
-            x = 4
-            for text, color in line_parts:
-                stdscr.addstr(proc_start+i, x, text, color)
-                x += len(text)
+            # Randomly decide to glitch this process line
+            if random.random() < 0.02:  # ~10% chance per frame
+                full_line_text = "".join([t for t, _ in line_parts])
+                # Apply glitch to entire line using multi-frame function
+                glitch_line(full_line_text, curses.color_pair(8),
+                            stdscr, proc_start + i)
+            else:
+                # Draw normally
+                x = 4
+                for text, color in line_parts:
+                    stdscr.addstr(proc_start + i, x, text, color)
+                    x += len(text)
 
         # ----- SEPARATOR -----
         separator_row = proc_start + TOP_N_PROCS + 1
@@ -211,18 +230,21 @@ def draw(stdscr):
         if len(log_lines) > MAX_LOG_LINES:
             log_lines.pop(0)
         for i, line in enumerate(log_lines):
-            stdscr.addstr(log_start_row + i, 4, line.ljust(60), curses.color_pair(6))
+            stdscr.addstr(log_start_row + i, 4,
+                          line.ljust(60), curses.color_pair(6))
 
         stdscr.refresh()
         time.sleep(REFRESH_RATE)
 
 # ---------------- ENTRY ---------------- #
 
+
 def main():
     try:
         curses.wrapper(draw)
     except KeyboardInterrupt:
         pass
+
 
 if __name__ == "__main__":
     main()
